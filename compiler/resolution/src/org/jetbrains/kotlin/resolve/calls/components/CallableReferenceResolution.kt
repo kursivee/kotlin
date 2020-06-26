@@ -289,7 +289,7 @@ class CallableReferencesCandidateFactory(
         val expectedArgumentCount = inputOutputTypes.inputTypes.size - unboundReceiverCount
         if (expectedArgumentCount < 0) return null
 
-        val fakeArguments = (0 until expectedArgumentCount).map { FakeKotlinCallArgumentForCallableReference(it) }
+        val fakeArguments = createFakeArgumentsForReference(descriptor, expectedArgumentCount)
         val argumentMapping =
             callComponents.argumentsToParametersMapper.mapArguments(fakeArguments, externalArgument = null, descriptor = descriptor)
         if (argumentMapping.diagnostics.any { !it.candidateApplicability.isSuccess }) return null
@@ -382,6 +382,26 @@ class CallableReferencesCandidateFactory(
             adaptedArguments,
             suspendConversionStrategy
         )
+    }
+
+    private fun createFakeArgumentsForReference(
+        descriptor: FunctionDescriptor,
+        expectedArgumentCount: Int
+    ): List<FakeKotlinCallArgumentForCallableReference> {
+        var afterVararg = false
+        return (0 until expectedArgumentCount).map { index ->
+            val valueParameter = descriptor.valueParameters.getOrNull(index)
+            val name =
+                if (afterVararg && valueParameter?.declaresDefaultValue() == true)
+                    valueParameter.name
+                else
+                    null
+
+            if (valueParameter?.isVararg == true) {
+                afterVararg = true
+            }
+            FakeKotlinCallArgumentForCallableReference(index, name)
+        }
     }
 
     private fun varargParameterTypeByExpectedParameter(
